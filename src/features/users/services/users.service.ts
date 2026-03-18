@@ -1,8 +1,15 @@
 import { supabase } from '@/lib/supabase/client';
+import { getCurrentUserContext } from '@/features/auth/services/current-user.service';
 
 export const usersService = {
   async listProfiles() {
-    const { data, error } = await supabase.from('profiles').select('id, full_name, role, is_active, created_at').order('created_at', { ascending: false });
+    const context = await getCurrentUserContext();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, role, is_active, created_at')
+      .eq('company_id', context.companyId)
+      .order('created_at', { ascending: false });
+
     if (error) throw error;
     return data;
   },

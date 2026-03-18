@@ -1,11 +1,15 @@
 import { supabase } from '@/lib/supabase/client';
 import type { ServiceOrderInput } from '@/features/service-orders/schemas/service-order.schema';
+import { getCurrentUserContext } from '@/features/auth/services/current-user.service';
 
 export const serviceOrdersService = {
   async list(filters: { status?: string; service_type?: string; query?: string }) {
+    const context = await getCurrentUserContext();
+
     let query = supabase
       .from('service_orders')
       .select('*, motoboys(name)')
+      .eq('company_id', context.companyId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
@@ -18,29 +22,65 @@ export const serviceOrdersService = {
     return data;
   },
   async getById(id: string) {
-    const { data, error } = await supabase.from('service_orders').select('*, motoboys(name), service_order_history(*)').eq('id', id).single();
+    const context = await getCurrentUserContext();
+    const { data, error } = await supabase
+      .from('service_orders')
+      .select('*, motoboys(name), service_order_history(*)')
+      .eq('id', id)
+      .eq('company_id', context.companyId)
+      .single();
+
     if (error) throw error;
     return data;
   },
   async create(payload: ServiceOrderInput) {
-    const { data, error } = await supabase.from('service_orders').insert(payload).select('*').single();
+    const context = await getCurrentUserContext();
+    const insertPayload = {
+      ...payload,
+      company_id: context.companyId,
+      created_by: context.userId,
+      motoboy_id: payload.motoboy_id || null,
+    };
+
+    const { data, error } = await supabase.from('service_orders').insert(insertPayload).select('*').single();
     if (error) throw error;
     return data;
   },
   async update(id: string, payload: ServiceOrderInput) {
-    const { data, error } = await supabase.from('service_orders').update(payload).eq('id', id).select('*').single();
+    const context = await getCurrentUserContext();
+    const updatePayload = {
+      ...payload,
+      motoboy_id: payload.motoboy_id || null,
+    };
+
+    const { data, error } = await supabase
+      .from('service_orders')
+      .update(updatePayload)
+      .eq('id', id)
+      .eq('company_id', context.companyId)
+      .select('*')
+      .single();
+
     if (error) throw error;
     return data;
   },
   async updateStatus(id: string, status: string, cancellation_reason?: string) {
-    const { error } = await supabase.from('service_orders').update({ status, cancellation_reason }).eq('id', id);
+    const context = await getCurrentUserContext();
+    const { error } = await supabase
+      .from('service_orders')
+      .update({ status, cancellation_reason })
+      .eq('id', id)
+      .eq('company_id', context.companyId);
+
     if (error) throw error;
   },
   async assignBatch(orderIds: string[], motoboyId?: string) {
+    const context = await getCurrentUserContext();
     const payload = motoboyId
       ? { motoboy_id: motoboyId, status: 'atribuida', assigned_at: new Date().toISOString() }
       : { motoboy_id: null, status: 'pendente', assigned_at: null };
-    const { error } = await supabase.from('service_orders').update(payload).in('id', orderIds);
+
+    const { error } = await supabase.from('service_orders').update(payload).in('id', orderIds).eq('company_id', context.companyId);
     if (error) throw error;
   },
 };
