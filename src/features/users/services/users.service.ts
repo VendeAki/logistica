@@ -10,7 +10,11 @@ export const usersService = {
       .eq('company_id', context.companyId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '42501' || error.status === 403) return [];
+      throw error;
+    }
+
     return data;
   },
 };

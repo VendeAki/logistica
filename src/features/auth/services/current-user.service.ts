@@ -6,26 +6,31 @@ export interface CurrentUserContext {
   role: 'admin' | 'operador' | 'supervisor';
 }
 
+const DEFAULT_COMPANY_ID = '11111111-1111-1111-1111-111111111111';
+
+function normalizeRole(role: unknown): CurrentUserContext['role'] {
+  if (role === 'admin' || role === 'supervisor' || role === 'operador') return role;
+  return 'operador';
+}
+
 export async function getCurrentUserContext(): Promise<CurrentUserContext> {
   const {
     data: { user },
-    error: userError,
+    error,
   } = await supabase.auth.getUser();
 
-  if (userError) throw userError;
+  if (error) throw error;
   if (!user) throw new Error('Usuário não autenticado.');
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, role, company_id')
-    .eq('id', user.id)
-    .single();
+  const metadata = user.user_metadata ?? {};
+  const appMetadata = user.app_metadata ?? {};
 
-  if (profileError) throw profileError;
+  const companyId = metadata.company_id ?? appMetadata.company_id ?? DEFAULT_COMPANY_ID;
+  const role = normalizeRole(metadata.role ?? appMetadata.role);
 
   return {
-    userId: profile.id,
-    role: profile.role,
-    companyId: profile.company_id,
+    userId: user.id,
+    companyId,
+    role,
   };
 }
