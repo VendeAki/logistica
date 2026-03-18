@@ -10,7 +10,7 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: (input: { email: string; password: string }) => authService.signIn(input.email, input.password),
     onSuccess: (data) => {
-      auth.setAuth({ userId: data.user?.id ?? '', role: ((data.user?.user_metadata.role as 'admin' | 'operador' | 'supervisor') ?? 'operador') });
+      auth.setAuth({ userId: data.context.userId, companyId: data.context.companyId, role: data.context.role });
       navigate('/dashboard');
     },
   });
