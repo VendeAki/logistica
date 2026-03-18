@@ -25,8 +25,11 @@ export async function getCurrentUserContext(): Promise<CurrentUserContext> {
   const metadata = user.user_metadata ?? {};
   const appMetadata = user.app_metadata ?? {};
 
-  const companyId = metadata.company_id ?? appMetadata.company_id ?? DEFAULT_COMPANY_ID;
-  const role = normalizeRole(metadata.role ?? appMetadata.role);
+  const profileQuery = await supabase.from('profiles').select('company_id, role').eq('id', user.id).maybeSingle();
+  if (profileQuery.error) throw profileQuery.error;
+
+  const companyId = profileQuery.data?.company_id ?? metadata.company_id ?? appMetadata.company_id ?? DEFAULT_COMPANY_ID;
+  const role = normalizeRole(profileQuery.data?.role ?? metadata.role ?? appMetadata.role);
 
   return {
     userId: user.id,
